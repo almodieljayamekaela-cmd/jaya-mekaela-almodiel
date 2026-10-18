@@ -1,3 +1,4 @@
+
 from flask import Flask, jsonify, request
 
 app = Flask(__name__)
@@ -14,8 +15,8 @@ def get_student():
         "student_id": "24-00328",
         "name": "Jaya Mekaela Almodiel",
         "program": "BSIT",
-        "year": 3,
-        "section": "A"
+        "year": "3rd Year",
+        "section": "Hamilton"
     })
 
 
@@ -30,11 +31,11 @@ def say_hello():
 @app.route('/course')
 def say_course():
     return jsonify({
-        "course_code": "IT3120",
+        "course_code": "3120",
         "course_title": "System Integration",
         "instructor": "Dr. Rene Arduo",
-        "semester": "First Semester",
-        "academic_year": "AY 2026-2027"
+        "semester": "1st Semester",
+        "academic_year": "2026-2027"
     })
 
 
@@ -42,12 +43,13 @@ def say_course():
 def greet():
     name = request.args.get('name', 'Jaya Mekaela Almodiel')
     program = request.args.get('program', 'BSIT')
-    year = request.args.get('year', '3')
-    section = request.args.get('section', 'A')
+    year = request.args.get('year', '3rd Year')
+    section = request.args.get('section', 'Hamilton')
 
     return jsonify({
-        "message": f"Hello {name} from {program} {year} {section}!"
+        "message": f"Hello {name} from {program}, {year}, {section} Section!"
     })
+
 
 @app.route('/profile')
 def get_profile():
@@ -55,20 +57,21 @@ def get_profile():
         "student_id": "24-00328",
         "name": "Jaya Mekaela Almodiel",
         "program": "BSIT",
-        "year": 3,
-        "section": "A",
-        "gmail": "almodieljayamekaela@isufst.edu.ph",
+        "year": "3rd Year",
+        "section": "Hamilton",
+        "gmail": "almodieljayamekaela@isufst.edu.ph"
     })
+
 
 @app.route('/entertainment')
 def get_entertainment():
     return jsonify({
-        "favorite_movie": "horror",
-        "favorite_song": "palayo sa mundo",
+        "favorite_movie": "Horror",
+        "favorite_song": "Palayo sa Mundo",
         "favorite_game": "Mobile Legends",
         "hobby": "Watching movies and reading books"
     })
-    
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
-
