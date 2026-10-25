@@ -2,456 +2,409 @@
 import os
 import sqlite3
 import requests
-
 from flask import Flask, jsonify, request, render_template
 
 app = Flask(__name__)
 
-# Database configuration
-DATABASE = "students.db"
-
-# Classmate API
+DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "students.db")
 CLASSMATE_API_URL = "https://maryjoydebaja.onrender.com/students"
 
-# Your student information
-STUDENT_INFO = {
-    "student_id": "24-00328",
-    "name": "Jaya Mekaela Almodiel",
-    "program": "BSIT",
-    "year": "3rd Year",
-    "section": "Hamilton"
-}
 
-COURSE_INFO = {
-    "course_code": "IT3120",
-    "course_title": "System Integration",
-    "instructor": "Dr. Rene Arduo",
-    "semester": "1st Semester",
-    "academic_year": "2026-2027"
-}
+# ---------------- DATABASE ----------------
 
-
-# ----------------------------------------
-# DATABASE CONNECTION
-# ----------------------------------------
-
-def get_db_connection():
-    conn = sqlite3.connect(DATABASE)
+def get_db():
+    conn = sqlite3.connect(DATABASE, timeout=10)
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def row_to_dict(row):
-    return dict(row) if row else None
+def init_db():
+    """Create the table if needed and add missing columns."""
+    conn = get_db()
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS students (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_id TEXT UNIQUE,
+            name TEXT,
+            program TEXT,
+            year TEXT,
+            section TEXT
+        )
+    """)
+
+    existing = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(students)").fetchall()
+    }
+
+    # Add missing fields without deleting existing records.
+    for column in ["student_id", "name", "program", "year", "section"]:
+        if column not in existing:
+            conn.execute(f'ALTER TABLE students ADD COLUMN "{column}" TEXT')
+
+    conn.commit()
+    conn.close()
 
 
-# ----------------------------------------
-# HOME PAGE
-# ----------------------------------------
+def get_student_fields():
+    conn = get_db()
+    fields = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(students)").fetchall()
+    }
+    conn.close()
+    return fields
+
+
+@app.before_request
+def prepare_database():
+    init_db()
+
+
+def error_response(message, status=500):
+    return jsonify({"error": message}), status
+
+
+# ---------------- HOME AND BASIC APIS ----------------
 
 @app.route("/")
 def home():
     return render_template("index.html")
 
 
-# ----------------------------------------
-# BASIC API ENDPOINTS
-# ----------------------------------------
-
-@app.route("/student", methods=["GET"])
-def student():
-    return jsonify(STUDENT_INFO)
-
-
-@app.route("/hello", methods=["GET"])
+@app.route("/hello")
 def hello():
+    return jsonify({"message": "Hello! Welcome to my Student API."})
+
+
+@app.route("/student")
+def student():
     return jsonify({
-        "message": "Hello! Welcome to my Student API."
+        "student_id": "24-00328",
+        "name": "Jaya Mekaela Almodiel",
+        "program": "BSIT",
+        "year": "3rd Year",
+        "section": "Hamilton"
     })
 
 
-@app.route("/course", methods=["GET"])
+@app.route("/course")
 def course():
-    return jsonify(COURSE_INFO)
+    return jsonify({
+        "course_code": "IT3120",
+        "course_title": "System Integration",
+        "instructor": "Dr. Rene Arduo",
+        "semester": "1st Semester",
+        "academic_year": "2026-2027"
+    })
 
 
-@app.route("/greet", methods=["GET"])
+@app.route("/greet")
 def greet():
     name = request.args.get("name", "Student")
-    return jsonify({
-        "message": f"Hello, {name}!"
-    })
+    return jsonify({"message": f"Hello, {name}!"})
 
 
-@app.route("/profile", methods=["GET"])
+@app.route("/profile")
 def profile():
     return jsonify({
-        "student": STUDENT_INFO,
-        "course": COURSE_INFO
+        "student": {
+            "student_id": "24-00328",
+            "name": "Jaya Mekaela Almodiel",
+            "program": "BSIT",
+            "year": "3rd Year",
+            "section": "Hamilton"
+        },
+        "course": {
+            "course_code": "IT3120",
+            "course_title": "System Integration",
+            "instructor": "Dr. Rene Arduo"
+        }
     })
 
 
-# ----------------------------------------
-# GET ALL STUDENTS
-# ----------------------------------------
+# ---------------- GET ALL STUDENTS ----------------
 
 @app.route("/students", methods=["GET"])
 def get_students():
     try:
-        conn = get_db_connection()
-        rows = conn.execute(
-            "SELECT * FROM students"
-        ).fetchall()
+        conn = get_db()
+        rows = conn.execute("SELECT * FROM students ORDER BY id DESC").fetchall()
         conn.close()
-
         return jsonify([dict(row) for row in rows]), 200
 
-    except sqlite3.Error as error:
-        return jsonify({
-            "error": "Could not retrieve students.",
-            "details": str(error)
-        }), 500
+    except sqlite3.Error as e:
+        app.logger.exception("Could not retrieve students")
+        return error_response(f"Database error: {e}")
 
 
-# ----------------------------------------
-# SEARCH STUDENT BY STUDENT ID
-# ----------------------------------------
+# ---------------- SEARCH BY STUDENT ID ----------------
 
-@app.route("/students/search/<string:student_id>", methods=["GET"])
+@app.route("/students/search/<string:student_id>")
 def search_student(student_id):
     try:
-        conn = get_db_connection()
-
+        conn = get_db()
         row = conn.execute(
             "SELECT * FROM students WHERE student_id = ?",
             (student_id,)
         ).fetchone()
-
         conn.close()
 
         if row is None:
-            return jsonify({
-                "error": "Student not found."
-            }), 404
+            return error_response("Student not found.", 404)
 
         return jsonify(dict(row)), 200
 
-    except sqlite3.Error as error:
-        return jsonify({
-            "error": str(error)
-        }), 500
+    except sqlite3.Error as e:
+        app.logger.exception("Student search failed")
+        return error_response(f"Database error: {e}")
 
 
-# ----------------------------------------
-# GET STUDENT BY DATABASE ID
-# ----------------------------------------
+# ---------------- GET STUDENT BY DATABASE ID ----------------
 
 @app.route("/students/<int:id>", methods=["GET"])
 def get_student(id):
     try:
-        conn = get_db_connection()
-
+        conn = get_db()
         row = conn.execute(
-            "SELECT * FROM students WHERE id = ?",
-            (id,)
+            "SELECT * FROM students WHERE id = ?", (id,)
         ).fetchone()
-
         conn.close()
 
         if row is None:
-            return jsonify({
-                "error": "Student not found."
-            }), 404
+            return error_response("Student not found.", 404)
 
         return jsonify(dict(row)), 200
 
-    except sqlite3.Error as error:
-        return jsonify({
-            "error": str(error)
-        }), 500
+    except sqlite3.Error as e:
+        app.logger.exception("Get student failed")
+        return error_response(f"Database error: {e}")
 
 
-# ----------------------------------------
-# FILTER STUDENTS BY PROGRAM
-# ----------------------------------------
+# ---------------- FILTER BY PROGRAM ----------------
 
-@app.route("/students/program/<string:program>", methods=["GET"])
-def get_students_by_program(program):
+@app.route("/students/program/<string:program>")
+def students_by_program(program):
     try:
-        conn = get_db_connection()
-
+        conn = get_db()
         rows = conn.execute(
-            "SELECT * FROM students WHERE program = ?",
-            (program,)
+            "SELECT * FROM students WHERE program = ?", (program,)
         ).fetchall()
-
         conn.close()
-
         return jsonify([dict(row) for row in rows]), 200
 
-    except sqlite3.Error as error:
-        return jsonify({
-            "error": str(error)
-        }), 500
+    except sqlite3.Error as e:
+        app.logger.exception("Program filter failed")
+        return error_response(f"Database error: {e}")
 
 
-# ----------------------------------------
-# ADD A STUDENT
-# ----------------------------------------
+# ---------------- ADD STUDENT ----------------
 
 @app.route("/students", methods=["POST"])
 def add_student():
     data = request.get_json(silent=True)
 
-    if not data:
-        return jsonify({
-            "error": "Please provide student information in JSON format."
-        }), 400
+    if not isinstance(data, dict):
+        return error_response("Please submit student information as JSON.", 400)
 
-    required_fields = [
-        "student_id",
-        "name",
-        "program",
-        "year",
-        "section"
-    ]
+    fields = ["student_id", "name", "program", "year", "section"]
+    student = {}
 
-    missing_fields = [
-        field for field in required_fields
-        if not str(data.get(field, "")).strip()
-    ]
+    for field in fields:
+        value = data.get(field)
 
-    if missing_fields:
-        return jsonify({
-            "error": "Missing required fields.",
-            "missing_fields": missing_fields
-        }), 400
+        if value is None or not str(value).strip():
+            return error_response(f"Please provide {field}.", 400)
+
+        student[field] = str(value).strip()
 
     try:
-        conn = get_db_connection()
+        conn = get_db()
 
-        conn.execute(
-            """
-            INSERT INTO students
-            (student_id, name, program, year, section)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (
-                data["student_id"].strip(),
-                data["name"].strip(),
-                data["program"].strip(),
-                data["year"].strip(),
-                data["section"].strip()
+        # Check actual table columns before inserting.
+        columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(students)").fetchall()
+        }
+
+        missing = [field for field in fields if field not in columns]
+        if missing:
+            conn.close()
+            return error_response(
+                "The database is missing these columns: " + ", ".join(missing)
             )
-        )
+
+        conn.execute("""
+            INSERT INTO students
+                (student_id, name, program, year, section)
+            VALUES (?, ?, ?, ?, ?)
+        """, tuple(student[field] for field in fields))
 
         conn.commit()
 
         row = conn.execute(
             "SELECT * FROM students WHERE student_id = ?",
-            (data["student_id"].strip(),)
+            (student["student_id"],)
         ).fetchone()
 
         conn.close()
 
         return jsonify({
-            "message": "Student added successfully.",
-            "student": row_to_dict(row)
+            "message": "Student added successfully!",
+            "student": dict(row)
         }), 201
 
     except sqlite3.IntegrityError:
-        return jsonify({
-            "error": "Could not add student. The student ID may already exist."
-        }), 409
+        return error_response(
+            "This student ID already exists. Please use a different ID.", 409
+        )
 
-    except sqlite3.Error as error:
-        return jsonify({
-            "error": str(error)
-        }), 500
+    except sqlite3.Error as e:
+        app.logger.exception("Add student failed")
+        return error_response(f"Database error while adding student: {e}")
 
 
-# ----------------------------------------
-# UPDATE A STUDENT
-# ----------------------------------------
+# ---------------- EDIT STUDENT ----------------
 
 @app.route("/students/<int:id>", methods=["PUT"])
 def update_student(id):
     data = request.get_json(silent=True)
 
-    if not data:
-        return jsonify({
-            "error": "Please provide updated information in JSON format."
-        }), 400
+    if not isinstance(data, dict):
+        return error_response("Please submit updated information as JSON.", 400)
 
-    allowed_fields = [
-        "student_id",
-        "name",
-        "program",
-        "year",
-        "section"
-    ]
+    allowed = ["student_id", "name", "program", "year", "section"]
+    updates = {}
 
-    updates = {
-        field: data[field]
-        for field in allowed_fields
-        if field in data
-    }
+    for field in allowed:
+        if field in data:
+            value = data[field]
+
+            if value is None or not str(value).strip():
+                return error_response(f"{field} cannot be empty.", 400)
+
+            updates[field] = str(value).strip()
 
     if not updates:
-        return jsonify({
-            "error": "No valid fields provided for updating."
-        }), 400
-
-    for field, value in updates.items():
-        if not isinstance(value, str) or not value.strip():
-            return jsonify({
-                "error": f"{field} must be a non-empty string."
-            }), 400
-        updates[field] = value.strip()
+        return error_response("No fields were provided to update.", 400)
 
     try:
-        conn = get_db_connection()
+        conn = get_db()
 
         existing = conn.execute(
-            "SELECT * FROM students WHERE id = ?",
-            (id,)
+            "SELECT id FROM students WHERE id = ?", (id,)
         ).fetchone()
 
         if existing is None:
             conn.close()
-            return jsonify({
-                "error": "Student not found."
-            }), 404
+            return error_response("Student not found.", 404)
 
-        set_clause = ", ".join(
-            f"{field} = ?" for field in updates
-        )
+        columns = get_columns_from_connection(conn)
+        missing = [field for field in updates if field not in columns]
 
-        values = list(updates.values())
-        values.append(id)
+        if missing:
+            conn.close()
+            return error_response(
+                "Database is missing columns: " + ", ".join(missing)
+            )
+
+        set_clause = ", ".join(f'"{field}" = ?' for field in updates)
+        values = list(updates.values()) + [id]
 
         conn.execute(
             f"UPDATE students SET {set_clause} WHERE id = ?",
             values
         )
-
         conn.commit()
 
-        updated = conn.execute(
-            "SELECT * FROM students WHERE id = ?",
-            (id,)
+        row = conn.execute(
+            "SELECT * FROM students WHERE id = ?", (id,)
         ).fetchone()
 
         conn.close()
 
         return jsonify({
-            "message": "Student updated successfully.",
-            "student": row_to_dict(updated)
+            "message": "Student updated successfully!",
+            "student": dict(row)
         }), 200
 
     except sqlite3.IntegrityError:
-        return jsonify({
-            "error": "Could not update student. The student ID may already exist."
-        }), 409
+        return error_response("That student ID is already in use.", 409)
 
-    except sqlite3.Error as error:
-        return jsonify({
-            "error": str(error)
-        }), 500
+    except sqlite3.Error as e:
+        app.logger.exception("Update student failed")
+        return error_response(f"Database error: {e}")
 
 
-# ----------------------------------------
-# DELETE A STUDENT
-# ----------------------------------------
+def get_columns_from_connection(conn):
+    return {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(students)").fetchall()
+    }
+
+
+# ---------------- DELETE STUDENT ----------------
 
 @app.route("/students/<int:id>", methods=["DELETE"])
 def delete_student(id):
     try:
-        conn = get_db_connection()
+        conn = get_db()
 
-        existing = conn.execute(
-            "SELECT * FROM students WHERE id = ?",
-            (id,)
-        ).fetchone()
-
-        if existing is None:
-            conn.close()
-            return jsonify({
-                "error": "Student not found."
-            }), 404
-
-        conn.execute(
-            "DELETE FROM students WHERE id = ?",
-            (id,)
+        result = conn.execute(
+            "DELETE FROM students WHERE id = ?", (id,)
         )
 
         conn.commit()
+        deleted = result.rowcount
         conn.close()
 
-        return jsonify({
-            "message": "Student deleted successfully."
-        }), 200
+        if deleted == 0:
+            return error_response("Student not found.", 404)
 
-    except sqlite3.Error as error:
-        return jsonify({
-            "error": str(error)
-        }), 500
+        return jsonify({"message": "Student deleted successfully!"}), 200
+
+    except sqlite3.Error as e:
+        app.logger.exception("Delete student failed")
+        return error_response(f"Database error: {e}")
 
 
-# ----------------------------------------
-# GRADES API
-# ----------------------------------------
+# ---------------- GRADES API ----------------
 
-@app.route("/grades/<string:student_id>", methods=["GET"])
-def get_grades(student_id):
+@app.route("/grades/<string:student_id>")
+def grades(student_id):
     try:
-        conn = get_db_connection()
-
-        student_record = conn.execute(
-            "SELECT * FROM students WHERE student_id = ?",
-            (student_id,)
+        conn = get_db()
+        row = conn.execute(
+            "SELECT * FROM students WHERE student_id = ?", (student_id,)
         ).fetchone()
-
         conn.close()
 
-        if student_record is None:
-            return jsonify({
-                "error": "Student not found."
-            }), 404
-
-        # Example grades for demonstration only.
-        # These are not official academic records.
-        grades = [
-            {"course_code": "IT3110", "grade": 1.25},
-            {"course_code": "IT3120", "grade": 1.50},
-            {"course_code": "IT3130", "grade": 1.25}
-        ]
+        if row is None:
+            return error_response("Student not found.", 404)
 
         return jsonify({
             "student_id": student_id,
-            "student_name": student_record["name"],
-            "grades": grades,
-            "note": "Sample grades for demonstration only."
+            "student_name": row["name"],
+            "grades": [
+                {"course_code": "IT3110", "grade": 1.25},
+                {"course_code": "IT3120", "grade": 1.50},
+                {"course_code": "IT3130", "grade": 1.25}
+            ],
+            "note": "Sample grades for demonstration only, not official records."
         }), 200
 
-    except sqlite3.Error as error:
-        return jsonify({
-            "error": str(error)
-        }), 500
+    except sqlite3.Error as e:
+        app.logger.exception("Grades request failed")
+        return error_response(f"Database error: {e}")
 
 
-# ----------------------------------------
-# CLASSMATE API
-# ----------------------------------------
+# ---------------- CLASSMATE API ----------------
 
-@app.route("/classmate-students", methods=["GET"])
-def get_classmate_students():
+@app.route("/classmate-students")
+def classmate_students():
     try:
-        response = requests.get(
-            CLASSMATE_API_URL,
-            timeout=15
-        )
-
+        response = requests.get(CLASSMATE_API_URL, timeout=15)
         response.raise_for_status()
 
         return jsonify({
@@ -459,31 +412,19 @@ def get_classmate_students():
             "students": response.json()
         }), 200
 
-    except requests.exceptions.Timeout:
+    except requests.exceptions.RequestException as e:
+        app.logger.exception("Classmate API request failed")
         return jsonify({
-            "error": "The classmate API request timed out. Please try again."
-        }), 504
-
-    except requests.exceptions.RequestException as error:
-        return jsonify({
-            "error": "Could not connect to the classmate API.",
-            "details": str(error)
+            "error": "Could not retrieve classmate data.",
+            "details": str(e)
         }), 502
 
     except ValueError:
-        return jsonify({
-            "error": "The classmate API returned invalid JSON."
-        }), 502
+        return error_response("Classmate API returned invalid JSON.", 502)
 
 
-# ----------------------------------------
-# RENDER CONFIGURATION
-# ----------------------------------------
+# ---------------- RUN SERVER ----------------
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    app.run(
-        host="0.0.0.0",
-        port=port,
-        debug=False
-    )
+    app.run(host="0.0.0.0", port=port, debug=False)
