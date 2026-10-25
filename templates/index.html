@@ -4,259 +4,743 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student API Interface</title>
+    <title>Student API Dashboard</title>
 
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f6f9;
             margin: 0;
-            padding: 20px;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f5f7fc;
+            color: #172033;
+        }
+
+        .container {
+            width: min(1020px, 94%);
+            margin: 28px auto;
+        }
+
+        .eyebrow {
+            color: #2455e8;
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 1.3px;
         }
 
         h1 {
-            text-align: center;
-            color: #263238;
+            font-size: 30px;
+            margin: 8px 0;
+            letter-spacing: -1px;
+        }
+
+        .subtitle {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .section-label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #64748b;
+            font-size: 11px;
+            letter-spacing: 1.3px;
+            margin: 28px 0 14px;
+        }
+
+        .section-label::after {
+            content: "";
+            height: 1px;
+            background: #e0e6f0;
+            flex: 1;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
         }
 
         .card {
-            background-color: white;
+            background: #fff;
+            border: 1px solid #e1e7f0;
+            border-radius: 13px;
             padding: 20px;
-            margin: 20px auto;
-            max-width: 700px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px #00000015;
+            box-shadow: 0 2px 5px rgba(30, 50, 90, 0.025);
+            min-width: 0;
         }
 
-        h2 {
-            color: #245b8f;
+        .card h3 {
+            font-size: 14px;
+            margin: 0 0 17px;
         }
 
         button {
-            background-color: #2878b5;
+            background: #2858e8;
             color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
+            border: 0;
+            border-radius: 8px;
+            padding: 12px 15px;
+            font-size: 12px;
+            font-weight: bold;
             cursor: pointer;
-            margin: 5px 0;
         }
 
         button:hover {
-            background-color: #185783;
+            background: #1745ca;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: wait;
         }
 
         input, select {
-            padding: 9px;
-            margin: 5px;
+            width: 100%;
+            min-width: 0;
+            padding: 12px;
+            border: 1px solid #d7dfed;
+            border-radius: 8px;
+            font-size: 13px;
+            background: white;
+            outline: none;
         }
 
-        .result {
-            background-color: #f0f4f8;
-            padding: 12px;
-            margin-top: 12px;
-            border-radius: 5px;
+        input:focus, select:focus {
+            border-color: #2858e8;
+            box-shadow: 0 0 0 2px #2858e81a;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .search-row input {
+            flex: 1;
+        }
+
+        .result-box {
+            background: #fbfcfe;
+            border: 1px solid #e3e9f2;
+            border-radius: 9px;
+            padding: 13px;
+            margin-top: 14px;
+            font-size: 13px;
             overflow-wrap: anywhere;
         }
 
-        .result p {
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 8px;
+        .student-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            background: #fbfcfe;
+            border: 1px solid #e3e9f2;
+            border-radius: 9px;
+            padding: 13px;
+            margin-top: 12px;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            flex-shrink: 0;
+            display: grid;
+            place-items: center;
+            background: #2858e8;
+            color: white;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .student-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .student-name {
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .student-id {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 9px;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 5px 8px;
+            border-radius: 5px;
+            background: #edf2ff;
+            color: #2455d8;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .text-button {
+            background: none;
+            color: #2455e8;
+            padding: 8px 0 0;
+            font-size: 11px;
+        }
+
+        .text-button:hover {
+            background: none;
+            text-decoration: underline;
+        }
+
+        .small-button {
+            padding: 7px 9px;
+            margin: 8px 4px 0 0;
+            font-size: 10px;
+        }
+
+        .delete-button {
+            background: #dc3545;
+        }
+
+        .delete-button:hover {
+            background: #b42332;
+        }
+
+        .grade-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e4e9f2;
+            font-size: 12px;
+        }
+
+        .grade-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .grade-value {
+            background: #edf2ff;
+            color: #2455d8;
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        .success {
+            color: #07844c;
+        }
+
+        .error {
+            color: #dc2626;
+        }
+
+        .muted {
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .form-grid .full {
+            grid-column: 1 / -1;
+        }
+
+        .form-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        #allStudents {
+            margin-top: 12px;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 11px;
+            color: #94a3b8;
+            padding: 24px 0 10px;
+        }
+
+        @media (max-width: 650px) {
+            .container {
+                margin-top: 20px;
+            }
+
+            h1 {
+                font-size: 25px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-grid .full {
+                grid-column: auto;
+            }
+
+            .search-row {
+                flex-wrap: wrap;
+            }
+
+            .search-row button {
+                width: 100%;
+            }
         }
     </style>
 </head>
 
 <body>
+<main class="container">
 
-    <h1>Student API Interface</h1>
+    <header>
+        <div class="eyebrow">API WORKSPACE</div>
+        <h1>Student API Dashboard</h1>
+        <p class="subtitle">
+            Manage requests and view student records in one place.
+        </p>
+    </header>
 
-    <!-- LAB 6: Student Information -->
-    <div class="card">
-        <h2>Student Information</h2>
-        <p>Click the button to retrieve your student information.</p>
-        <button onclick="loadStudent()">Load Student Information</button>
-        <div id="studentInfo" class="result">
-            Student information will appear here.
+    <div class="section-label">LOOKUPS</div>
+
+    <section class="grid">
+
+        <!-- LOAD STUDENT INFORMATION -->
+        <div class="card">
+            <h3>Load Student Information</h3>
+            <button type="button" onclick="loadStudents()">
+                Load Student Information
+            </button>
+            <div id="studentList" aria-live="polite">
+                <p class="muted">Click the button to load student records.</p>
+            </div>
         </div>
-    </div>
 
-    <!-- LAB 6: Greeting API -->
-    <div class="card">
-        <h2>Greeting API</h2>
-        <p>Enter your name to receive a greeting.</p>
-        <input type="text" id="nameInput" placeholder="Enter your name">
-        <button onclick="sayHello()">Say Hello</button>
-        <div id="greetingResult" class="result">
-            Your greeting will appear here.
+        <!-- SEARCH STUDENT -->
+        <div class="card">
+            <h3>Search Student by Student ID</h3>
+            <form id="searchForm" class="search-row">
+                <input id="searchId" placeholder="Enter Student ID" required>
+                <button type="submit">Search Student</button>
+            </form>
+            <div id="searchResult" aria-live="polite"></div>
         </div>
-    </div>
 
-    <!-- LAB 6: Course Information -->
-    <div class="card">
-        <h2>Course Information API</h2>
-        <p>Click the button to retrieve your course information.</p>
-        <button onclick="loadCourse()">Load Course Information</button>
-        <div id="courseInfo" class="result">
-            Course information will appear here.
+        <!-- GRADES -->
+        <div class="card">
+            <h3>Grades API</h3>
+            <form id="gradesForm" class="search-row">
+                <input id="gradeId" placeholder="Enter Student ID" required>
+                <button type="submit">View Grades</button>
+            </form>
+            <div id="gradesResult" class="result-box">
+                Enter a student ID to view the sample grades.
+            </div>
         </div>
-    </div>
 
-    <!-- LAB 7: Students from Database -->
-    <div class="card">
-        <h2>Students from Database</h2>
-        <p>Click the button to retrieve student records from SQLite.</p>
-        <button onclick="loadStudents()">Load Students</button>
-        <div id="studentList" class="result">
-            Database records will appear here.
+        <!-- GREETING -->
+        <div class="card">
+            <h3>Greeting API</h3>
+            <form id="greetForm" class="search-row">
+                <input id="greetName" placeholder="Enter your first name" required>
+                <button type="submit">Say Hello</button>
+            </form>
+            <div id="greetResult" class="result-box">
+                <span class="success">Hello!</span>
+            </div>
         </div>
-    </div>
 
-    <!-- LAB 7: Search by Program -->
-    <div class="card">
-        <h2>Search Students by Program</h2>
-        <p>Select a program to find matching students.</p>
+    </section>
 
-        <label for="programInput">Program:</label>
-        <select id="programInput">
-            <option value="BSIT">BSIT</option>
-            <option value="BSCS">BSCS</option>
-        </select>
+    <!-- CREATE -->
+    <div class="section-label">CREATE</div>
 
-        <button onclick="loadStudentsByProgram()">Search Program</button>
+    <section class="card">
+        <h3>Add Student</h3>
 
-        <div id="programResult" class="result">
-            Program results will appear here.
-        </div>
-    </div>
+        <form id="addForm">
+            <div class="form-grid">
+                <input name="student_id" placeholder="Student ID" required>
+                <input name="name" placeholder="Full Name" required>
+                <input name="program" placeholder="Program (e.g. BSIT)" required>
 
-    <script>
-        // LAB 6: Load student information
-        async function loadStudent() {
-            const result = document.getElementById("studentInfo");
-            result.textContent = "Loading...";
+                <input name="year" type="number" min="1"
+                       max="10" placeholder="Year" required>
 
-            try {
-                const response = await fetch("/student");
-                if (!response.ok) throw new Error("Request failed");
+                <input name="section" placeholder="Section" required>
+            </div>
 
-                const data = await response.json();
-                result.textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                result.textContent = "Unable to load student information.";
-            }
+            <div class="form-actions">
+                <button type="submit">Add Student</button>
+                <button type="button" onclick="loadClassmates()">
+                    Load Classmate API
+                </button>
+            </div>
+        </form>
+
+        <div id="addResult" aria-live="polite"></div>
+    </section>
+
+    <!-- ALL STUDENTS / UPDATE / DELETE -->
+    <div class="section-label">STUDENT RECORDS</div>
+
+    <section class="card">
+        <h3>Manage Student Records</h3>
+        <p class="muted">
+            View, update, or delete students from your database.
+        </p>
+
+        <button type="button" onclick="loadStudents()">
+            Refresh Student Records
+        </button>
+
+        <div id="allStudents" aria-live="polite"></div>
+    </section>
+
+    <!-- CLASSMATE API -->
+    <div class="section-label">CLASSMATE API</div>
+
+    <section class="card">
+        <h3>Classmate Student Records</h3>
+        <p class="muted">
+            Retrieve student records from the external classmate API.
+        </p>
+        <div id="classmateResult"></div>
+    </section>
+
+    <footer class="footer">
+        Student API Dashboard · System Integration
+    </footer>
+
+</main>
+
+<script>
+    const studentList = document.getElementById("studentList");
+    const allStudents = document.getElementById("allStudents");
+
+    function escapeHTML(value) {
+        return String(value ?? "").replace(/[&<>"']/g, function (char) {
+            return {
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;"
+            }[char];
+        });
+    }
+
+    function showMessage(element, message, type = "") {
+        element.innerHTML =
+            `<div class="${type}" style="margin-top:12px;font-size:12px;">` +
+            `${escapeHTML(message)}</div>`;
+    }
+
+    async function apiRequest(url, options = {}) {
+        const response = await fetch(url, options);
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(data.error || `Request failed (${response.status})`);
         }
 
-        // LAB 6: Greeting API
-        async function sayHello() {
-            const name = document.getElementById("nameInput").value.trim();
-            const result = document.getElementById("greetingResult");
+        return data;
+    }
 
-            if (!name) {
-                result.textContent = "Please enter your name.";
+    function studentCard(student, manageable = false) {
+        const id = Number(student.id);
+        const name = escapeHTML(student.name);
+        const initials = escapeHTML(
+            String(student.name || "?")
+                .split(/\s+/)
+                .filter(Boolean)
+                .slice(0, 2)
+                .map(word => word[0])
+                .join("")
+                .toUpperCase()
+        );
+
+        return `
+            <div class="student-card">
+                <div class="avatar">${initials}</div>
+                <div class="student-info">
+                    <div class="student-name">${name}</div>
+                    <div class="student-id">
+                        ${escapeHTML(student.student_id)}
+                    </div>
+                    <div class="tags">
+                        <span class="tag">${escapeHTML(student.program)}</span>
+                        <span class="tag">Year ${escapeHTML(student.year)}</span>
+                        <span class="tag">Section ${escapeHTML(student.section)}</span>
+                    </div>
+
+                    <button class="text-button" type="button"
+                        onclick="viewStudent('${escapeHTML(student.student_id)}')">
+                        View details →
+                    </button>
+
+                    ${manageable ? `
+                        <div>
+                            <button class="small-button" type="button"
+                                onclick="editStudent(${id})">Edit</button>
+                            <button class="small-button delete-button" type="button"
+                                onclick="deleteStudent(${id})">Delete</button>
+                        </div>
+                    ` : ""}
+                </div>
+            </div>
+        `;
+    }
+
+    async function loadStudents() {
+        studentList.innerHTML = '<p class="muted">Loading students...</p>';
+        allStudents.innerHTML = '<p class="muted">Loading records...</p>';
+
+        try {
+            const students = await apiRequest("/students");
+
+            if (!Array.isArray(students) || students.length === 0) {
+                studentList.innerHTML =
+                    '<p class="muted">No student records found.</p>';
+                allStudents.innerHTML =
+                    '<p class="muted">No student records found.</p>';
                 return;
             }
 
-            result.textContent = "Loading...";
+            studentList.innerHTML = students
+                .slice(0, 3)
+                .map(student => studentCard(student))
+                .join("");
 
-            try {
-                const response = await fetch(
-                    "/greet?name=" + encodeURIComponent(name)
-                );
-                if (!response.ok) throw new Error("Request failed");
-
-                const data = await response.json();
-                result.textContent = data.message;
-            } catch (error) {
-                result.textContent = "Unable to load greeting.";
+            if (students.length > 3) {
+                studentList.innerHTML +=
+                    `<p class="muted">Showing 3 of ${students.length} records.</p>`;
             }
+
+            allStudents.innerHTML = students
+                .map(student => studentCard(student, true))
+                .join("");
+
+        } catch (error) {
+            const message = error.message +
+                ". Check that the database is initialized and the server is running.";
+
+            studentList.innerHTML =
+                `<p class="error">${escapeHTML(message)}</p>`;
+            allStudents.innerHTML =
+                `<p class="error">${escapeHTML(message)}</p>`;
+        }
+    }
+
+    async function viewStudent(studentId) {
+        const result = document.getElementById("searchResult");
+        document.getElementById("searchId").value = studentId;
+        result.innerHTML = '<p class="muted">Searching...</p>';
+
+        try {
+            const student = await apiRequest(
+                "/students/search/" + encodeURIComponent(studentId)
+            );
+
+            result.innerHTML = studentCard(student);
+        } catch (error) {
+            showMessage(result, error.message, "error");
+        }
+    }
+
+    document.getElementById("searchForm").addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const studentId = document.getElementById("searchId").value.trim();
+        const result = document.getElementById("searchResult");
+
+        result.innerHTML = '<p class="muted">Searching...</p>';
+
+        try {
+            const student = await apiRequest(
+                "/students/search/" + encodeURIComponent(studentId)
+            );
+            result.innerHTML = studentCard(student);
+        } catch (error) {
+            showMessage(result, error.message, "error");
+        }
+    });
+
+    document.getElementById("gradesForm").addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const studentId = document.getElementById("gradeId").value.trim();
+        const result = document.getElementById("gradesResult");
+
+        result.textContent = "Loading grades...";
+
+        try {
+            const data = await apiRequest(
+                "/grades/" + encodeURIComponent(studentId)
+            );
+
+            result.innerHTML =
+                `<strong>Grades for ${escapeHTML(data.name)}</strong>` +
+                (data.grades || []).map(grade => `
+                    <div class="grade-row">
+                        <span>${escapeHTML(grade.course)}</span>
+                        <span class="grade-value">${escapeHTML(grade.grade)}</span>
+                    </div>
+                `).join("");
+
+        } catch (error) {
+            showMessage(result, error.message, "error");
+        }
+    });
+
+    document.getElementById("greetForm").addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const name = document.getElementById("greetName").value.trim();
+        const result = document.getElementById("greetResult");
+
+        try {
+            const data = await apiRequest(
+                "/greet?name=" + encodeURIComponent(name)
+            );
+            result.innerHTML =
+                `<span class="success">${escapeHTML(data.message)}</span>`;
+        } catch (error) {
+            showMessage(result, error.message, "error");
+        }
+    });
+
+    document.getElementById("addForm").addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const form = event.currentTarget;
+        const data = Object.fromEntries(new FormData(form).entries());
+        const result = document.getElementById("addResult");
+
+        data.year = Number(data.year);
+        result.textContent = "Adding student...";
+
+        try {
+            const response = await apiRequest("/students", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(data)
+            });
+
+            showMessage(result, response.message, "success");
+            form.reset();
+            await loadStudents();
+        } catch (error) {
+            showMessage(result, error.message, "error");
+        }
+    });
+
+    async function editStudent(id) {
+        try {
+            const student = await apiRequest("/students/" + id);
+
+            const name = prompt("Full name:", student.name);
+            if (name === null) return;
+
+            const studentId = prompt("Student ID:", student.student_id);
+            if (studentId === null) return;
+
+            const program = prompt("Program:", student.program);
+            if (program === null) return;
+
+            const year = prompt("Year:", student.year);
+            if (year === null) return;
+
+            const section = prompt("Section:", student.section);
+            if (section === null) return;
+
+            const updated = {
+                name: name.trim(),
+                student_id: studentId.trim(),
+                program: program.trim(),
+                year: Number(year),
+                section: section.trim()
+            };
+
+            const result = await apiRequest("/students/" + id, {
+                method: "PUT",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(updated)
+            });
+
+            alert(result.message);
+            await loadStudents();
+
+        } catch (error) {
+            alert("Update failed: " + error.message);
+        }
+    }
+
+    async function deleteStudent(id) {
+        if (!confirm("Are you sure you want to delete this student?")) {
+            return;
         }
 
-        // LAB 6: Load course information
-        async function loadCourse() {
-            const result = document.getElementById("courseInfo");
-            result.textContent = "Loading...";
+        try {
+            const result = await apiRequest("/students/" + id, {
+                method: "DELETE"
+            });
 
-            try {
-                const response = await fetch("/course");
-                if (!response.ok) throw new Error("Request failed");
+            alert(result.message);
+            await loadStudents();
 
-                const data = await response.json();
-                result.textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                result.textContent = "Unable to load course information.";
-            }
+        } catch (error) {
+            alert("Delete failed: " + error.message);
         }
+    }
 
-        // LAB 7: Load all students from SQLite
-        async function loadStudents() {
-            const result = document.getElementById("studentList");
-            result.textContent = "Loading student records...";
+    async function loadClassmates() {
+        const result = document.getElementById("classmateResult");
+        result.innerHTML = '<p class="muted">Connecting to classmate API...</p>';
 
-            try {
-                const response = await fetch("/students");
-                if (!response.ok) throw new Error("Request failed");
+        try {
+            const data = await apiRequest("/classmate-students");
+            const students = data.students || [];
 
-                const data = await response.json();
-                result.replaceChildren();
-
-                if (data.length === 0) {
-                    result.textContent = "No student records found.";
-                    return;
-                }
-
-                data.forEach(student => {
-                    const paragraph = document.createElement("p");
-                    paragraph.textContent =
-                        "ID: " + student.id +
-                        " | Student ID: " + student.student_id +
-                        " | Name: " + student.name +
-                        " | Program: " + student.program +
-                        " | Year: " + student.year +
-                        " | Section: " + student.section;
-
-                    result.appendChild(paragraph);
-                });
-            } catch (error) {
-                result.textContent =
-                    "Unable to retrieve student records. Check your Flask app and database.";
+            if (students.length === 0) {
+                result.innerHTML = '<p class="muted">No classmate records found.</p>';
+                return;
             }
+
+            result.innerHTML = students
+                .map(student => studentCard(student))
+                .join("");
+
+        } catch (error) {
+            showMessage(result, error.message, "error");
         }
+    }
 
-        // LAB 7: Search students by program
-        async function loadStudentsByProgram() {
-            const program = document.getElementById("programInput").value;
-            const result = document.getElementById("programResult");
-            result.textContent = "Loading program records...";
-
-            try {
-                const response = await fetch(
-                    "/students/program/" + encodeURIComponent(program)
-                );
-                if (!response.ok) throw new Error("Request failed");
-
-                const data = await response.json();
-                result.replaceChildren();
-
-                if (data.length === 0) {
-                    result.textContent = "No students found in this program.";
-                    return;
-                }
-
-                data.forEach(student => {
-                    const paragraph = document.createElement("p");
-                    paragraph.textContent =
-                        student.name + " (" + student.student_id + ")" +
-                        " | " + student.program +
-                        " | Year " + student.year +
-                        " | Section " + student.section;
-
-                    result.appendChild(paragraph);
-                });
-            } catch (error) {
-                result.textContent = "Unable to retrieve program records.";
-            }
-        }
-    </script>
-
+    // Load records when the dashboard opens.
+    loadStudents();
+</script>
 </body>
 </html>
