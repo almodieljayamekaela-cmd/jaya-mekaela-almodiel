@@ -33,9 +33,7 @@ def student():
 # LAB 6: Hello API
 @app.route("/hello")
 def hello():
-    return jsonify({
-        "message": "Hello, World!"
-    })
+    return jsonify({"message": "Hello, World!"})
 
 
 # LAB 6: Course Information
@@ -54,9 +52,7 @@ def course():
 @app.route("/greet")
 def greet():
     name = request.args.get("name", "Student")
-    return jsonify({
-        "message": f"Hello, {name}!"
-    })
+    return jsonify({"message": f"Hello, {name}!"})
 
 
 # LAB 6: Profile API
@@ -73,25 +69,24 @@ def profile():
     })
 
 
-# LAB 7: Retrieve All Students from SQLite
-@app.route("/students")
+# LAB 7: Retrieve all students
+@app.route("/students", methods=["GET"])
 def get_students():
     conn = get_db_connection()
     students = conn.execute(
-        "SELECT * FROM students"
+        "SELECT * FROM students ORDER BY id"
     ).fetchall()
     conn.close()
 
-    return jsonify([dict(student) for student in students])
+    return jsonify([dict(s) for s in students])
 
 
-# LAB 7: Retrieve One Student by ID
-@app.route("/students/<int:id>")
+# LAB 7: Retrieve one student
+@app.route("/students/<int:id>", methods=["GET"])
 def get_student_by_id(id):
     conn = get_db_connection()
     student = conn.execute(
-        "SELECT * FROM students WHERE id = ?",
-        (id,)
+        "SELECT * FROM students WHERE id = ?", (id,)
     ).fetchone()
     conn.close()
 
@@ -101,8 +96,8 @@ def get_student_by_id(id):
     return jsonify(dict(student))
 
 
-# LAB 7: Filter Students by Program
-@app.route("/students/program/<program>")
+# LAB 7: Filter students by program
+@app.route("/students/program/<program>", methods=["GET"])
 def get_students_by_program(program):
     conn = get_db_connection()
     students = conn.execute(
@@ -111,9 +106,154 @@ def get_students_by_program(program):
     ).fetchall()
     conn.close()
 
-    return jsonify([dict(student) for student in students])
+    return jsonify([dict(s) for s in students])
 
 
-# Run the Flask application
+# LAB 8: CREATE - Add a student
+@app.route("/students", methods=["POST"])
+def create_student():
+    data = request.get_json(silent=True)
+
+    if not data:
+        return jsonify({
+            "error": "Please send student information as JSON."
+        }), 400
+
+    required_fields = [
+        "student_id", "name", "program", "year", "section"
+    ]
+
+    if any(
+        field not in data or str(data[field]).strip() == ""
+        for field in required_fields
+    ):
+        return jsonify({
+            "error": "All fields are required: student_id, name, program, year, section."
+        }), 400
+
+    try:
+        year = int(data["year"])
+    except (ValueError, TypeError):
+        return jsonify({"error": "Year must be a number."}), 400
+
+    conn = get_db_connection()
+    cursor = conn.execute(
+        """
+        INSERT INTO students
+        (student_id, name, program, year, section)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            str(data["student_id"]).strip(),
+            str(data["name"]).strip(),
+            str(data["program"]).strip(),
+            year,
+            str(data["section"]).strip()
+        )
+    )
+    conn.commit()
+
+    student = conn.execute(
+        "SELECT * FROM students WHERE id = ?", (cursor.lastrowid,)
+    ).fetchone()
+    conn.close()
+
+    return jsonify({
+        "message": "Student added successfully.",
+        "student": dict(student)
+    }), 201
+
+
+# LAB 8: UPDATE - Edit a student
+@app.route("/students/<int:id>", methods=["PUT"])
+def update_student(id):
+    data = request.get_json(silent=True)
+
+    if not data:
+        return jsonify({
+            "error": "Please send the updated information as JSON."
+        }), 400
+
+    required_fields = [
+        "student_id", "name", "program", "year", "section"
+    ]
+
+    if any(
+        field not in data or str(data[field]).strip() == ""
+        for field in required_fields
+    ):
+        return jsonify({
+            "error": "Send all five fields to update the student."
+        }), 400
+
+    try:
+        year = int(data["year"])
+    except (ValueError, TypeError):
+        return jsonify({"error": "Year must be a number."}), 400
+
+    conn = get_db_connection()
+
+    existing = conn.execute(
+        "SELECT id FROM students WHERE id = ?", (id,)
+    ).fetchone()
+
+    if existing is None:
+        conn.close()
+        return jsonify({"error": "Student not found"}), 404
+
+    conn.execute(
+        """
+        UPDATE students
+        SET student_id = ?, name = ?, program = ?,
+            year = ?, section = ?
+        WHERE id = ?
+        """,
+        (
+            str(data["student_id"]).strip(),
+            str(data["name"]).strip(),
+            str(data["program"]).strip(),
+            year,
+            str(data["section"]).strip(),
+            id
+        )
+    )
+    conn.commit()
+
+    student = conn.execute(
+        "SELECT * FROM students WHERE id = ?", (id,)
+    ).fetchone()
+    conn.close()
+
+    return jsonify({
+        "message": "Student updated successfully.",
+        "student": dict(student)
+    })
+
+
+# LAB 8: DELETE - Remove a student
+@app.route("/students/<int:id>", methods=["DELETE"])
+def delete_student(id):
+    conn = get_db_connection()
+
+    student = conn.execute(
+        "SELECT * FROM students WHERE id = ?", (id,)
+    ).fetchone()
+
+    if student is None:
+        conn.close()
+        return jsonify({"error": "Student not found"}), 404
+
+    conn.execute(
+        "DELETE FROM students WHERE id = ?", (id,)
+    )
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "message": "Student deleted successfully.",
+        "deleted_student": dict(student)
+    })
+
+
 if __name__ == "__main__":
     app.run(debug=True)
