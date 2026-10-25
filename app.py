@@ -1,24 +1,28 @@
 
 import sqlite3
+import requests
 from flask import Flask, jsonify, request, render_template
 
 app = Flask(__name__)
 
+# Classmate API URL
+CLASSMATE_API_URL = "https://maryjoydebaja.onrender.com/students"
 
-# Connect to the SQLite database
+
+# Connect to the database
 def get_db_connection():
     conn = sqlite3.connect("students.db")
     conn.row_factory = sqlite3.Row
     return conn
 
 
-# LAB 6: Home Page
+# HOME
 @app.route("/")
 def home():
     return render_template("index.html")
 
 
-# LAB 6: Student Information
+# STUDENT PROFILE
 @app.route("/student")
 def student():
     return jsonify({
@@ -30,13 +34,13 @@ def student():
     })
 
 
-# LAB 6: Hello API
+# HELLO
 @app.route("/hello")
 def hello():
     return jsonify({"message": "Hello, World!"})
 
 
-# LAB 6: Course Information
+# COURSE INFORMATION
 @app.route("/course")
 def course():
     return jsonify({
@@ -48,14 +52,14 @@ def course():
     })
 
 
-# LAB 6: Greeting API
+# GREET
 @app.route("/greet")
 def greet():
     name = request.args.get("name", "Student")
     return jsonify({"message": f"Hello, {name}!"})
 
 
-# LAB 6: Profile API
+# PERSONAL PROFILE
 @app.route("/profile")
 def profile():
     return jsonify({
@@ -69,7 +73,7 @@ def profile():
     })
 
 
-# LAB 7: Retrieve all students
+# GET ALL STUDENTS
 @app.route("/students", methods=["GET"])
 def get_students():
     conn = get_db_connection()
@@ -78,10 +82,10 @@ def get_students():
     ).fetchall()
     conn.close()
 
-    return jsonify([dict(s) for s in students])
+    return jsonify([dict(student) for student in students])
 
 
-# LAB 7: Retrieve one student
+# GET ONE STUDENT
 @app.route("/students/<int:id>", methods=["GET"])
 def get_student_by_id(id):
     conn = get_db_connection()
@@ -96,28 +100,25 @@ def get_student_by_id(id):
     return jsonify(dict(student))
 
 
-# LAB 7: Filter students by program
+# GET STUDENTS BY PROGRAM
 @app.route("/students/program/<program>", methods=["GET"])
 def get_students_by_program(program):
     conn = get_db_connection()
     students = conn.execute(
-        "SELECT * FROM students WHERE program = ?",
-        (program,)
+        "SELECT * FROM students WHERE program = ?", (program,)
     ).fetchall()
     conn.close()
 
-    return jsonify([dict(s) for s in students])
+    return jsonify([dict(student) for student in students])
 
 
-# LAB 8: CREATE - Add a student
+# CREATE STUDENT - POST
 @app.route("/students", methods=["POST"])
 def create_student():
     data = request.get_json(silent=True)
 
     if not data:
-        return jsonify({
-            "error": "Please send student information as JSON."
-        }), 400
+        return jsonify({"error": "Please send student information as JSON."}), 400
 
     required_fields = [
         "student_id", "name", "program", "year", "section"
@@ -138,11 +139,9 @@ def create_student():
 
     conn = get_db_connection()
     cursor = conn.execute(
-        """
-        INSERT INTO students
+        """INSERT INTO students
         (student_id, name, program, year, section)
-        VALUES (?, ?, ?, ?, ?)
-        """,
+        VALUES (?, ?, ?, ?, ?)""",
         (
             str(data["student_id"]).strip(),
             str(data["name"]).strip(),
@@ -151,11 +150,13 @@ def create_student():
             str(data["section"]).strip()
         )
     )
+
     conn.commit()
 
     student = conn.execute(
         "SELECT * FROM students WHERE id = ?", (cursor.lastrowid,)
     ).fetchone()
+
     conn.close()
 
     return jsonify({
@@ -164,15 +165,13 @@ def create_student():
     }), 201
 
 
-# LAB 8: UPDATE - Edit a student
+# UPDATE STUDENT - PUT
 @app.route("/students/<int:id>", methods=["PUT"])
 def update_student(id):
     data = request.get_json(silent=True)
 
     if not data:
-        return jsonify({
-            "error": "Please send the updated information as JSON."
-        }), 400
+        return jsonify({"error": "Please send updated information as JSON."}), 400
 
     required_fields = [
         "student_id", "name", "program", "year", "section"
@@ -202,12 +201,9 @@ def update_student(id):
         return jsonify({"error": "Student not found"}), 404
 
     conn.execute(
-        """
-        UPDATE students
-        SET student_id = ?, name = ?, program = ?,
-            year = ?, section = ?
-        WHERE id = ?
-        """,
+        """UPDATE students
+        SET student_id = ?, name = ?, program = ?, year = ?, section = ?
+        WHERE id = ?""",
         (
             str(data["student_id"]).strip(),
             str(data["name"]).strip(),
@@ -217,11 +213,13 @@ def update_student(id):
             id
         )
     )
+
     conn.commit()
 
     student = conn.execute(
         "SELECT * FROM students WHERE id = ?", (id,)
     ).fetchone()
+
     conn.close()
 
     return jsonify({
@@ -230,7 +228,7 @@ def update_student(id):
     })
 
 
-# LAB 8: DELETE - Remove a student
+# DELETE STUDENT - DELETE
 @app.route("/students/<int:id>", methods=["DELETE"])
 def delete_student(id):
     conn = get_db_connection()
@@ -243,9 +241,7 @@ def delete_student(id):
         conn.close()
         return jsonify({"error": "Student not found"}), 404
 
-    conn.execute(
-        "DELETE FROM students WHERE id = ?", (id,)
-    )
+    conn.execute("DELETE FROM students WHERE id = ?", (id,))
     conn.commit()
     conn.close()
 
@@ -255,5 +251,35 @@ def delete_student(id):
     })
 
 
+# GET CLASSMATE STUDENTS FROM EXTERNAL API
+@app.route("/classmate-students", methods=["GET"])
+def get_classmate_students():
+    try:
+        response = requests.get(CLASSMATE_API_URL, timeout=60)
+
+        if response.status_code != 200:
+            return jsonify({
+                "error": "Could not retrieve classmate records.",
+                "status_code": response.status_code
+            }), 502
+
+        return jsonify({
+            "message": "Classmate records retrieved successfully.",
+            "students": response.json()
+        })
+
+    except requests.RequestException as error:
+        return jsonify({
+            "error": "Could not connect to the classmate API.",
+            "details": str(error)
+        }), 502
+
+    except ValueError:
+        return jsonify({
+            "error": "The classmate API did not return valid JSON."
+        }), 502
+
+
+# RUN THE APP
 if __name__ == "__main__":
     app.run(debug=True)
