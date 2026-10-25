@@ -9,62 +9,59 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 700px;
-            margin: 40px auto;
-            padding: 20px;
             background-color: #f4f6f9;
-            color: #222;
+            margin: 0;
+            padding: 20px;
         }
 
         h1 {
             text-align: center;
-            color: #234b82;
-        }
-
-        h2 {
-            color: #234b82;
+            color: #263238;
         }
 
         .card {
-            background: white;
+            background-color: white;
             padding: 20px;
-            margin-bottom: 20px;
+            margin: 20px auto;
+            max-width: 700px;
             border-radius: 10px;
-            border: 1px solid #ddd;
+            box-shadow: 0 2px 8px #00000015;
+        }
+
+        h2 {
+            color: #245b8f;
         }
 
         button {
-            padding: 10px 15px;
-            margin: 5px 0;
-            cursor: pointer;
-            border: none;
-            border-radius: 5px;
-            background-color: #234b82;
+            background-color: #2878b5;
             color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px 0;
         }
 
         button:hover {
-            background-color: #17345c;
+            background-color: #185783;
         }
 
-        input {
-            padding: 10px;
-            max-width: 95%;
-            width: 280px;
-            margin: 5px 0;
+        input, select {
+            padding: 9px;
+            margin: 5px;
         }
 
         .result {
-            margin-top: 15px;
+            background-color: #f0f4f8;
             padding: 12px;
-            background-color: #f8fafc;
-            border: 1px solid #ddd;
+            margin-top: 12px;
             border-radius: 5px;
             overflow-wrap: anywhere;
         }
 
         .result p {
-            margin: 10px 0;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 8px;
         }
     </style>
 </head>
@@ -73,164 +70,190 @@
 
     <h1>Student API Interface</h1>
 
+    <!-- LAB 6: Student Information -->
     <div class="card">
         <h2>Student Information</h2>
         <p>Click the button to retrieve your student information.</p>
-
-        <button onclick="loadStudent()">
-            Load Student Information
-        </button>
-
-        <div id="result" class="result">
+        <button onclick="loadStudent()">Load Student Information</button>
+        <div id="studentInfo" class="result">
             Student information will appear here.
         </div>
     </div>
 
+    <!-- LAB 6: Greeting API -->
     <div class="card">
         <h2>Greeting API</h2>
         <p>Enter your name to receive a greeting.</p>
-
-        <input
-            type="text"
-            id="nameInput"
-            placeholder="Enter your name"
-        >
-
-        <br>
-
+        <input type="text" id="nameInput" placeholder="Enter your name">
         <button onclick="sayHello()">Say Hello</button>
-
-        <div id="greeting" class="result">
+        <div id="greetingResult" class="result">
             Your greeting will appear here.
         </div>
     </div>
 
+    <!-- LAB 6: Course Information -->
     <div class="card">
         <h2>Course Information API</h2>
         <p>Click the button to retrieve your course information.</p>
-
-        <button onclick="loadCourse()">
-            Load Course Information
-        </button>
-
-        <div id="courseResult" class="result">
+        <button onclick="loadCourse()">Load Course Information</button>
+        <div id="courseInfo" class="result">
             Course information will appear here.
         </div>
     </div>
 
+    <!-- LAB 7: Students from Database -->
+    <div class="card">
+        <h2>Students from Database</h2>
+        <p>Click the button to retrieve student records from SQLite.</p>
+        <button onclick="loadStudents()">Load Students</button>
+        <div id="studentList" class="result">
+            Database records will appear here.
+        </div>
+    </div>
+
+    <!-- LAB 7: Search by Program -->
+    <div class="card">
+        <h2>Search Students by Program</h2>
+        <p>Select a program to find matching students.</p>
+
+        <label for="programInput">Program:</label>
+        <select id="programInput">
+            <option value="BSIT">BSIT</option>
+            <option value="BSCS">BSCS</option>
+        </select>
+
+        <button onclick="loadStudentsByProgram()">Search Program</button>
+
+        <div id="programResult" class="result">
+            Program results will appear here.
+        </div>
+    </div>
+
     <script>
+        // LAB 6: Load student information
         async function loadStudent() {
-            const result = document.getElementById('result');
-            result.textContent = 'Loading student information...';
+            const result = document.getElementById("studentInfo");
+            result.textContent = "Loading...";
 
             try {
-                const response = await fetch('/student');
-
-                if (!response.ok) {
-                    throw new Error('Request failed');
-                }
+                const response = await fetch("/student");
+                if (!response.ok) throw new Error("Request failed");
 
                 const data = await response.json();
-
-                result.replaceChildren();
-
-                const fields = [
-                    ['Student ID', data.student_id],
-                    ['Name', data.name],
-                    ['Program', data.program],
-                    ['Year', data.year],
-                    ['Section', data.section]
-                ];
-
-                fields.forEach(([label, value]) => {
-                    const paragraph = document.createElement('p');
-                    const bold = document.createElement('b');
-
-                    bold.textContent = label + ': ';
-                    paragraph.appendChild(bold);
-                    paragraph.appendChild(
-                        document.createTextNode(value ?? '')
-                    );
-
-                    result.appendChild(paragraph);
-                });
-
+                result.textContent = JSON.stringify(data, null, 2);
             } catch (error) {
-                result.textContent =
-                    'Unable to retrieve student information.';
+                result.textContent = "Unable to load student information.";
             }
         }
 
-
+        // LAB 6: Greeting API
         async function sayHello() {
-            const name = document.getElementById('nameInput').value.trim();
-            const greeting = document.getElementById('greeting');
+            const name = document.getElementById("nameInput").value.trim();
+            const result = document.getElementById("greetingResult");
 
             if (!name) {
-                greeting.textContent = 'Please enter your name.';
+                result.textContent = "Please enter your name.";
                 return;
             }
 
-            greeting.textContent = 'Loading greeting...';
+            result.textContent = "Loading...";
 
             try {
                 const response = await fetch(
-                    '/hello?name=' + encodeURIComponent(name)
+                    "/greet?name=" + encodeURIComponent(name)
                 );
-
-                if (!response.ok) {
-                    throw new Error('Request failed');
-                }
+                if (!response.ok) throw new Error("Request failed");
 
                 const data = await response.json();
-                greeting.textContent = data.message;
-
+                result.textContent = data.message;
             } catch (error) {
-                greeting.textContent =
-                    'Unable to retrieve greeting.';
+                result.textContent = "Unable to load greeting.";
             }
         }
 
-
+        // LAB 6: Load course information
         async function loadCourse() {
-            const result = document.getElementById('courseResult');
-            result.textContent = 'Loading course information...';
+            const result = document.getElementById("courseInfo");
+            result.textContent = "Loading...";
 
             try {
-                const response = await fetch('/course');
-
-                if (!response.ok) {
-                    throw new Error('Request failed');
-                }
+                const response = await fetch("/course");
+                if (!response.ok) throw new Error("Request failed");
 
                 const data = await response.json();
+                result.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                result.textContent = "Unable to load course information.";
+            }
+        }
 
+        // LAB 7: Load all students from SQLite
+        async function loadStudents() {
+            const result = document.getElementById("studentList");
+            result.textContent = "Loading student records...";
+
+            try {
+                const response = await fetch("/students");
+                if (!response.ok) throw new Error("Request failed");
+
+                const data = await response.json();
                 result.replaceChildren();
 
-                const fields = [
-                    ['Course Code', data.course_code],
-                    ['Course Title', data.course_title],
-                    ['Instructor', data.instructor],
-                    ['Semester', data.semester],
-                    ['Academic Year', data.academic_year]
-                ];
+                if (data.length === 0) {
+                    result.textContent = "No student records found.";
+                    return;
+                }
 
-                fields.forEach(([label, value]) => {
-                    const paragraph = document.createElement('p');
-                    const bold = document.createElement('b');
-
-                    bold.textContent = label + ': ';
-                    paragraph.appendChild(bold);
-                    paragraph.appendChild(
-                        document.createTextNode(value ?? '')
-                    );
+                data.forEach(student => {
+                    const paragraph = document.createElement("p");
+                    paragraph.textContent =
+                        "ID: " + student.id +
+                        " | Student ID: " + student.student_id +
+                        " | Name: " + student.name +
+                        " | Program: " + student.program +
+                        " | Year: " + student.year +
+                        " | Section: " + student.section;
 
                     result.appendChild(paragraph);
                 });
-
             } catch (error) {
                 result.textContent =
-                    'Unable to retrieve course information.';
+                    "Unable to retrieve student records. Check your Flask app and database.";
+            }
+        }
+
+        // LAB 7: Search students by program
+        async function loadStudentsByProgram() {
+            const program = document.getElementById("programInput").value;
+            const result = document.getElementById("programResult");
+            result.textContent = "Loading program records...";
+
+            try {
+                const response = await fetch(
+                    "/students/program/" + encodeURIComponent(program)
+                );
+                if (!response.ok) throw new Error("Request failed");
+
+                const data = await response.json();
+                result.replaceChildren();
+
+                if (data.length === 0) {
+                    result.textContent = "No students found in this program.";
+                    return;
+                }
+
+                data.forEach(student => {
+                    const paragraph = document.createElement("p");
+                    paragraph.textContent =
+                        student.name + " (" + student.student_id + ")" +
+                        " | " + student.program +
+                        " | Year " + student.year +
+                        " | Section " + student.section;
+
+                    result.appendChild(paragraph);
+                });
+            } catch (error) {
+                result.textContent = "Unable to retrieve program records.";
             }
         }
     </script>
