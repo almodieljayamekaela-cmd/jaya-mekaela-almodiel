@@ -1,16 +1,12 @@
+
 import os
 import sqlite3
 import requests
-
 from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
 
-DATABASE = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "students.db"
-)
-
+DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "students.db")
 PARTNER_URL = "https://maryjoydebaja.onrender.com"
 
 
@@ -70,9 +66,7 @@ def student():
 
 @app.route("/hello")
 def hello():
-    return jsonify({
-        "message": "Hello from Jaya's Flask API!"
-    })
+    return jsonify({"message": "Hello from Jaya's Flask API!"})
 
 
 @app.route("/course")
@@ -105,11 +99,9 @@ def profile():
 @app.route("/api/students", methods=["GET"])
 def get_students():
     connection = get_db_connection()
-
     students = connection.execute(
         "SELECT * FROM students ORDER BY id DESC"
     ).fetchall()
-
     connection.close()
 
     return jsonify([dict(student) for student in students])
@@ -123,9 +115,7 @@ def add_student():
         return jsonify({"error": "No student data received"}), 400
 
     if not data.get("student_id") or not data.get("name"):
-        return jsonify({
-            "error": "Student ID and name are required"
-        }), 400
+        return jsonify({"error": "Student ID and name are required"}), 400
 
     connection = get_db_connection()
 
@@ -146,14 +136,11 @@ def add_student():
         connection.commit()
 
         return jsonify({
-            "message": "Student added successfully!",
-            "student": data
+            "message": "Student added successfully!"
         }), 201
 
     except sqlite3.IntegrityError:
-        return jsonify({
-            "error": "Student ID already exists"
-        }), 409
+        return jsonify({"error": "Student ID already exists"}), 409
 
     finally:
         connection.close()
@@ -168,23 +155,18 @@ def update_student(student_id):
 
     connection = get_db_connection()
 
-    existing = connection.execute(
-        "SELECT * FROM students WHERE id = ?",
-        (student_id,)
-    ).fetchone()
-
-    if not existing:
-        connection.close()
-        return jsonify({"error": "Student not found"}), 404
-
     try:
+        existing = connection.execute(
+            "SELECT * FROM students WHERE id = ?",
+            (student_id,)
+        ).fetchone()
+
+        if not existing:
+            return jsonify({"error": "Student not found"}), 404
+
         connection.execute("""
             UPDATE students
-            SET student_id = ?,
-                name = ?,
-                program = ?,
-                year = ?,
-                section = ?
+            SET student_id = ?, name = ?, program = ?, year = ?, section = ?
             WHERE id = ?
         """, (
             data.get("student_id", existing["student_id"]),
@@ -197,14 +179,10 @@ def update_student(student_id):
 
         connection.commit()
 
-        return jsonify({
-            "message": "Student updated successfully!"
-        })
+        return jsonify({"message": "Student updated successfully!"})
 
     except sqlite3.IntegrityError:
-        return jsonify({
-            "error": "Student ID already exists"
-        }), 409
+        return jsonify({"error": "Student ID already exists"}), 409
 
     finally:
         connection.close()
@@ -214,20 +192,20 @@ def update_student(student_id):
 def delete_student(student_id):
     connection = get_db_connection()
 
-    result = connection.execute(
-        "DELETE FROM students WHERE id = ?",
-        (student_id,)
-    )
+    try:
+        result = connection.execute(
+            "DELETE FROM students WHERE id = ?",
+            (student_id,)
+        )
+        connection.commit()
 
-    connection.commit()
-    connection.close()
+        if result.rowcount == 0:
+            return jsonify({"error": "Student not found"}), 404
 
-    if result.rowcount == 0:
-        return jsonify({"error": "Student not found"}), 404
+        return jsonify({"message": "Student deleted successfully!"})
 
-    return jsonify({
-        "message": "Student deleted successfully!"
-    })
+    finally:
+        connection.close()
 
 
 @app.route("/students/search/<student_id>", methods=["GET"])
@@ -252,23 +230,17 @@ def get_partner_records():
     try:
         response = requests.get(
             f"{PARTNER_URL}/api/students",
-            timeout=30
+            timeout=45
         )
-
         response.raise_for_status()
 
         records = response.json()
 
         if isinstance(records, dict):
-            records = records.get(
-                "students",
-                records.get("data", [])
-            )
+            records = records.get("students", records.get("data", []))
 
         if not isinstance(records, list):
-            return jsonify({
-                "error": "Invalid partner API response"
-            }), 502
+            return jsonify({"error": "Invalid partner API response"}), 502
 
         return jsonify(records)
 
@@ -279,9 +251,7 @@ def get_partner_records():
         }), 502
 
     except ValueError:
-        return jsonify({
-            "error": "Partner API returned invalid JSON"
-        }), 502
+        return jsonify({"error": "Partner API returned invalid JSON"}), 502
 
 
 @app.route("/import-student", methods=["POST"])
@@ -292,9 +262,7 @@ def import_student():
         return jsonify({"error": "No student record received"}), 400
 
     if not data.get("student_id") or not data.get("name"):
-        return jsonify({
-            "error": "Student ID and name are required"
-        }), 400
+        return jsonify({"error": "Student ID and name are required"}), 400
 
     connection = get_db_connection()
 
@@ -319,9 +287,7 @@ def import_student():
         }), 201
 
     except sqlite3.IntegrityError:
-        return jsonify({
-            "error": "Student record already exists"
-        }), 409
+        return jsonify({"error": "Student record already exists"}), 409
 
     finally:
         connection.close()
@@ -332,37 +298,40 @@ def send_to_partner():
     data = request.get_json(silent=True)
 
     if not data:
-        return jsonify({
-            "error": "No record received"
-        }), 400
+        return jsonify({"error": "No record received"}), 400
+
+    if not data.get("student_id") or not data.get("name"):
+        return jsonify({"error": "Student ID and name are required"}), 400
 
     try:
         response = requests.post(
-            "https://maryjoydebaja.onrender.com/api/students",
+            f"{PARTNER_URL}/api/students",
             json=data,
-            timeout=30
+            headers={"Content-Type": "application/json"},
+            timeout=45
         )
 
         try:
-            partner_response = response.json()
+            partner_result = response.json()
         except ValueError:
-            partner_response = response.text
+            partner_result = response.text
 
         if not response.ok:
             return jsonify({
                 "error": "Partner API rejected the record",
                 "partner_status": response.status_code,
-                "partner_response": partner_response
+                "partner_response": partner_result
             }), 502
 
         return jsonify({
             "message": "Record successfully sent to partner!",
-            "partner_response": partner_response
+            "partner_status": response.status_code,
+            "partner_response": partner_result
         }), 200
 
     except requests.RequestException as error:
         return jsonify({
-            "error": "Unable to send record to partner",
+            "error": "Unable to connect to partner API",
             "details": str(error)
         }), 502
 
@@ -378,7 +347,16 @@ def get_grades(student_id):
 
     connection.close()
 
-    return jsonify([dict(grade) for grade in grades])
+    return jsonify({
+        "student_id": student_id,
+        "grades": [
+            {
+                "course": grade["course_title"] or grade["course_code"],
+                "grade": grade["grade"]
+            }
+            for grade in grades
+        ]
+    })
 
 
 if __name__ == "__main__":
