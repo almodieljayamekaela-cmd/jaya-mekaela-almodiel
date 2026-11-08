@@ -36,16 +36,12 @@
             margin: 0 0 8px;
         }
 
-        header p {
-            margin: 0;
-        }
-
         .section {
             background: white;
             padding: 22px;
             margin-bottom: 22px;
             border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 2px 8px rgba(0,0,0,.06);
         }
 
         h2 {
@@ -69,6 +65,7 @@
             border: 1px solid #ccd3df;
             border-radius: 7px;
             font-size: 14px;
+            margin-bottom: 8px;
         }
 
         button {
@@ -83,24 +80,13 @@
         }
 
         button:hover {
-            opacity: 0.85;
+            opacity: .85;
         }
 
-        .secondary {
-            background: #65758b;
-        }
-
-        .success {
-            background: #27845c;
-        }
-
-        .danger {
-            background: #bd4545;
-        }
-
-        .warning {
-            background: #b77b24;
-        }
+        .secondary { background: #65758b; }
+        .success { background: #27845c; }
+        .danger { background: #bd4545; }
+        .warning { background: #b77b24; }
 
         .records-grid {
             display: grid;
@@ -143,14 +129,9 @@
             padding: 10px 0;
         }
 
-        @media (max-width: 600px) {
-            body {
-                padding: 12px;
-            }
-
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
+        @media(max-width:600px) {
+            body { padding: 12px; }
+            .form-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -238,6 +219,8 @@
         <h2>Send Practice Record to Partner</h2>
         <p>Send a fictional practice record to your assigned partner.</p>
 
+        <input id="practiceId" placeholder="Enter unused practice Student ID">
+
         <button class="warning" onclick="sendToPartner()">
             Send Practice Record
         </button>
@@ -247,6 +230,23 @@
 
     <section class="section">
         <h2>Grades API</h2>
+
+        <h3>Add Practice Grade</h3>
+
+        <div class="form-grid">
+            <input id="gradeAddStudentId" placeholder="Student ID">
+            <input id="gradeCourseCode" placeholder="Course Code">
+            <input id="gradeCourseTitle" placeholder="Course Title">
+            <input id="gradeValue" placeholder="Grade">
+        </div>
+
+        <button class="success" onclick="addGrade()">Save Grade</button>
+
+        <div id="gradeAddMessage" class="message"></div>
+
+        <hr>
+
+        <h3>View Student Grades</h3>
 
         <input id="gradeStudentId" value="24-00328"
                placeholder="Student ID">
@@ -275,7 +275,11 @@
         }
 
         if (!response.ok) {
-            throw new Error(result.error || "Request failed: " + response.status);
+            throw new Error(
+                result.error ||
+                result.details ||
+                "Request failed: HTTP " + response.status
+            );
         }
 
         return result;
@@ -295,9 +299,6 @@
         const card = document.createElement("div");
         card.className = "record-card";
 
-        const id = Number(student.id);
-        const source = student.source || "Unknown";
-
         card.innerHTML = `
             <p><strong>Student ID:</strong> ${escapeHTML(student.student_id)}</p>
             <p><strong>Name:</strong> ${escapeHTML(student.name)}</p>
@@ -305,7 +306,7 @@
             <p><strong>Year:</strong> ${escapeHTML(student.year)}</p>
             <p><strong>Section:</strong> ${escapeHTML(student.section)}</p>
             <p><strong>Source:</strong>
-                <span class="source">${escapeHTML(source)}</span>
+                <span class="source">${escapeHTML(student.source || "Unknown")}</span>
             </p>
         `;
 
@@ -318,7 +319,7 @@
             const deleteButton = document.createElement("button");
             deleteButton.textContent = "Delete";
             deleteButton.className = "danger";
-            deleteButton.onclick = () => deleteStudent(id);
+            deleteButton.onclick = () => deleteStudent(student.student_id);
 
             card.append(editButton, deleteButton);
         }
@@ -378,16 +379,26 @@
 
     async function loadPartnerRecords() {
         partnerRecords.innerHTML = "Loading partner records...";
-        document.getElementById("partnerMessage").textContent = "";
+
+        const message = document.getElementById("partnerMessage");
+        message.textContent = "";
 
         try {
-            const students = await apiRequest("/partner-records");
+            const data = await apiRequest("/partner-records");
+
+            const students = Array.isArray(data)
+                ? data
+                : data.records;
+
+            if (!Array.isArray(students)) {
+                throw new Error("Partner API did not return a student list.");
+            }
+
             showRecords(partnerRecords, students, {partner: true});
+
         } catch (error) {
             partnerRecords.textContent = error.message;
-
-            document.getElementById("partnerMessage").textContent =
-                "Please check your partner's API endpoint.";
+            message.textContent = "Unable to retrieve partner records.";
         }
     }
 
@@ -410,9 +421,7 @@
         try {
             const result = await apiRequest("/import-student", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(student)
             });
 
@@ -435,7 +444,7 @@
                 student_id: document.getElementById("student_id").value.trim(),
                 name: document.getElementById("name").value.trim(),
                 program: document.getElementById("program").value.trim(),
-                year: document.getElementById("year").value,
+                year: Number(document.getElementById("year").value),
                 section: document.getElementById("section").value.trim(),
                 source: "Local"
             };
@@ -443,9 +452,7 @@
             try {
                 const result = await apiRequest("/api/students", {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
+                    headers: {"Content-Type": "application/json"},
                     body: JSON.stringify(student)
                 });
 
@@ -475,25 +482,22 @@
         const section = prompt("Enter section:", student.section);
         if (section === null) return;
 
-        const updatedStudent = {
-            student_id: student.student_id,
-            name: name.trim(),
-            program: program.trim(),
-            year: year,
-            section: section.trim()
-        };
-
         try {
-            const result = await apiRequest("/students/" + student.id, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(updatedStudent)
-            });
+            const result = await apiRequest(
+                "/students/" + encodeURIComponent(student.student_id),
+                {
+                    method: "PUT",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({
+                        name: name.trim(),
+                        program: program.trim(),
+                        year: Number(year),
+                        section: section.trim()
+                    })
+                }
+            );
 
             alert(result.message);
-
             await loadStudents();
             await loadImportedRecords();
 
@@ -502,18 +506,18 @@
         }
     }
 
-    async function deleteStudent(id) {
+    async function deleteStudent(studentId) {
         if (!confirm("Are you sure you want to delete this record?")) {
             return;
         }
 
         try {
-            const result = await apiRequest("/students/" + id, {
-                method: "DELETE"
-            });
+            const result = await apiRequest(
+                "/students/" + encodeURIComponent(studentId),
+                {method: "DELETE"}
+            );
 
             alert(result.message);
-
             await loadStudents();
             await loadImportedRecords();
 
@@ -543,17 +547,55 @@
         }
     }
 
+    async function addGrade() {
+        const message = document.getElementById("gradeAddMessage");
+
+        const grade = {
+            student_id: document.getElementById("gradeAddStudentId").value.trim(),
+            course_code: document.getElementById("gradeCourseCode").value.trim(),
+            course_title: document.getElementById("gradeCourseTitle").value.trim(),
+            grade: document.getElementById("gradeValue").value.trim()
+        };
+
+        if (Object.values(grade).some(value => !value)) {
+            message.textContent = "Please complete all grade fields.";
+            return;
+        }
+
+        try {
+            const result = await apiRequest("/grades", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(grade)
+            });
+
+            message.textContent = result.message;
+
+            document.getElementById("gradeStudentId").value = grade.student_id;
+
+            await loadGrades();
+
+        } catch (error) {
+            message.textContent = error.message;
+        }
+    }
+
     async function loadGrades() {
         const id = document.getElementById("gradeStudentId").value.trim();
         const results = document.getElementById("gradesResults");
+
+        if (!id) {
+            results.textContent = "Please enter a Student ID.";
+            return;
+        }
 
         try {
             const data = await apiRequest(
                 "/grades/" + encodeURIComponent(id)
             );
 
-            results.innerHTML = "<h3>Student ID: " +
-                escapeHTML(data.student_id) + "</h3>";
+            results.innerHTML =
+                "<h3>Grades for " + escapeHTML(data.student_id) + "</h3>";
 
             if (!data.grades || data.grades.length === 0) {
                 results.innerHTML += "<p>No grades found.</p>";
@@ -561,9 +603,16 @@
             }
 
             data.grades.forEach(grade => {
-                const p = document.createElement("p");
-                p.textContent = grade.course + ": " + grade.grade;
-                results.appendChild(p);
+                const card = document.createElement("div");
+                card.className = "record-card";
+
+                card.innerHTML = `
+                    <p><strong>Course Code:</strong> ${escapeHTML(grade.course_code)}</p>
+                    <p><strong>Course Title:</strong> ${escapeHTML(grade.course_title)}</p>
+                    <p><strong>Grade:</strong> ${escapeHTML(grade.grade)}</p>
+                `;
+
+                results.appendChild(card);
             });
 
         } catch (error) {
@@ -573,9 +622,15 @@
 
     async function sendToPartner() {
         const message = document.getElementById("sendMessage");
+        const practiceId = document.getElementById("practiceId").value.trim();
+
+        if (!practiceId) {
+            message.textContent = "Enter a practice Student ID first.";
+            return;
+        }
 
         const record = {
-            student_id: "EXT-002",
+            student_id: practiceId,
             name: "Sample Exchange Record",
             program: "BSIT",
             year: 1,
@@ -590,49 +645,17 @@
         message.textContent = "Sending record...";
 
         try {
-            const response = await fetch("/send-to-partner", {
+            const result = await apiRequest("/send-to-partner", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(record)
             });
 
-            let result;
-
-            try {
-                result = await response.json();
-            } catch {
-                result = {};
-            }
-
-            if (!response.ok) {
-                const details =
-                    result.partner_response ||
-                    result.details ||
-                    result.error ||
-                    "Unknown error";
-
-                message.textContent =
-                    "Sending failed. HTTP " +
-                    (result.partner_status || response.status) +
-                    ". Details: " +
-                    (typeof details === "string"
-                        ? details
-                        : JSON.stringify(details));
-
-                return;
-            }
-
             message.textContent =
-                result.message || "Record sent successfully!";
-
-            alert("Record sent successfully!");
-            console.log(result);
+                "Successfully sent! " + JSON.stringify(result.response || result);
 
         } catch (error) {
             message.textContent = "Sending failed: " + error.message;
-            console.error(error);
         }
     }
 
