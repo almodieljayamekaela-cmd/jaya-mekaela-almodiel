@@ -6,8 +6,10 @@ from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE = os.path.join(BASE_DIR, "students.db")
+DATABASE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "students.db"
+)
 
 PARTNER_URL = "https://maryjoydebaja.onrender.com"
 
@@ -47,10 +49,6 @@ def initialize_database():
     connection.close()
 
 
-def student_to_dict(student):
-    return dict(student)
-
-
 initialize_database()
 
 
@@ -72,7 +70,9 @@ def student():
 
 @app.route("/hello")
 def hello():
-    return jsonify({"message": "Hello from Jaya's Flask API!"})
+    return jsonify({
+        "message": "Hello from Jaya's Flask API!"
+    })
 
 
 @app.route("/course")
@@ -105,12 +105,14 @@ def profile():
 @app.route("/api/students", methods=["GET"])
 def get_students():
     connection = get_db_connection()
+
     students = connection.execute(
         "SELECT * FROM students ORDER BY id DESC"
     ).fetchall()
+
     connection.close()
 
-    return jsonify([student_to_dict(s) for s in students])
+    return jsonify([dict(student) for student in students])
 
 
 @app.route("/api/students", methods=["POST"])
@@ -120,11 +122,10 @@ def add_student():
     if not data:
         return jsonify({"error": "No student data received"}), 400
 
-    required_fields = ["student_id", "name"]
-
-    for field in required_fields:
-        if not data.get(field):
-            return jsonify({"error": f"{field} is required"}), 400
+    if not data.get("student_id") or not data.get("name"):
+        return jsonify({
+            "error": "Student ID and name are required"
+        }), 400
 
     connection = get_db_connection()
 
@@ -150,7 +151,9 @@ def add_student():
         }), 201
 
     except sqlite3.IntegrityError:
-        return jsonify({"error": "Student ID already exists"}), 409
+        return jsonify({
+            "error": "Student ID already exists"
+        }), 409
 
     finally:
         connection.close()
@@ -194,10 +197,14 @@ def update_student(student_id):
 
         connection.commit()
 
-        return jsonify({"message": "Student updated successfully!"})
+        return jsonify({
+            "message": "Student updated successfully!"
+        })
 
     except sqlite3.IntegrityError:
-        return jsonify({"error": "Student ID already exists"}), 409
+        return jsonify({
+            "error": "Student ID already exists"
+        }), 409
 
     finally:
         connection.close()
@@ -218,7 +225,9 @@ def delete_student(student_id):
     if result.rowcount == 0:
         return jsonify({"error": "Student not found"}), 404
 
-    return jsonify({"message": "Student deleted successfully!"})
+    return jsonify({
+        "message": "Student deleted successfully!"
+    })
 
 
 @app.route("/students/search/<student_id>", methods=["GET"])
@@ -235,7 +244,7 @@ def search_student(student_id):
     if not student:
         return jsonify({"error": "Student not found"}), 404
 
-    return jsonify(student_to_dict(student))
+    return jsonify(dict(student))
 
 
 @app.route("/partner-records", methods=["GET"])
@@ -251,24 +260,27 @@ def get_partner_records():
         records = response.json()
 
         if isinstance(records, dict):
-            records = records.get("students", records.get("data", []))
+            records = records.get(
+                "students",
+                records.get("data", [])
+            )
 
         if not isinstance(records, list):
             return jsonify({
-                "error": "Partner API did not return a list of student records"
+                "error": "Invalid partner API response"
             }), 502
 
         return jsonify(records)
 
     except requests.RequestException as error:
         return jsonify({
-            "error": "Unable to retrieve records from partner API",
+            "error": "Unable to retrieve partner records",
             "details": str(error)
         }), 502
 
     except ValueError:
         return jsonify({
-            "error": "Partner API returned an invalid response"
+            "error": "Partner API returned invalid JSON"
         }), 502
 
 
@@ -303,12 +315,12 @@ def import_student():
         connection.commit()
 
         return jsonify({
-            "message": "Partner student record imported successfully!"
+            "message": "Partner record imported successfully!"
         }), 201
 
     except sqlite3.IntegrityError:
         return jsonify({
-            "error": "This student record already exists in your database"
+            "error": "Student record already exists"
         }), 409
 
     finally:
@@ -320,11 +332,13 @@ def send_to_partner():
     data = request.get_json(silent=True)
 
     if not data:
-        return jsonify({"error": "No record received"}), 400
+        return jsonify({
+            "error": "No record received"
+        }), 400
 
     try:
         response = requests.post(
-            f"{PARTNER_URL}/api/students",
+            "https://maryjoydebaja.onrender.com/api/students",
             json=data,
             timeout=30
         )
@@ -368,4 +382,7 @@ def get_grades(student_id):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000))
+    )
